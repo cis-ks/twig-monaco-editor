@@ -1,0 +1,30 @@
+{
+  "name": "twig-monaco-editor",
+  "version": "1.0.0",
+  "description": "IntelliSense for Twig within Micros0ofts Monaco-Editor",
+  "main": "dist/index.d.ts",
+  "module": "dist/index.d.ts",
+  "types": "dist/types.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cis-ks/twig-monaco-editor.git"
+  },
+  "keywords": [
+    "TWIG",
+    "IntelliSense",
+    "Monaco",
+    "Monaco-Editor"
+  ],
+  "author": "Kay Schroeder <kay.schroeder@cis-gotha.de>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cis-ks/twig-monaco-editor/issues"
+  },
+  "homepage": "https://github.com/cis-ks/twig-monaco-editor#readme",
+  "dependencies": {
+    "monaco-editor": "^0.52"
+  }
+}
