@@ -14,12 +14,15 @@ export class twigCompletionProvider implements CompletionItemProvider {
         const currentWord = model.getWordUntilPosition(position)
         const previousWord = model.getWordUntilPosition(new Position(position.lineNumber, currentWord.startColumn - 1))
         const lineContent = model.getValueInRange(new Range(position.lineNumber, 1, position.lineNumber, currentWord.startColumn))
-        const previousChar = lineContent.slice(-1)
         const wordRange = new Range(position.lineNumber, currentWord.startColumn, position.lineNumber, currentWord.endColumn)
 
         const openTags = this.openTags(model, position.lineNumber, currentWord)
         const listStatements = this.listStatements(model, position.lineNumber, currentWord)
 
+        console.log('currentWord', currentWord)
+        console.log('previousWord', previousWord)
+        console.log('lineContent', lineContent)
+        console.log('listStatements', listStatements)
 
         const currentStatement = lineContent.substring(Math.max(
             lineContent.lastIndexOf(" "),
@@ -27,9 +30,25 @@ export class twigCompletionProvider implements CompletionItemProvider {
         ) + 1)
 
         if (lineContent.match(/.*{%[^}]+$/)) {
-            this.resolveControl(currentWord, previousWord, lineContent, previousChar, wordRange, openTags, currentStatement)
+            this.resolveControl(
+                currentWord,
+                previousWord,
+                lineContent,
+                wordRange,
+                openTags,
+                currentStatement,
+                listStatements
+            )
         } else if (lineContent.match(/.*{{[^}]+$/)) {
-            this.resolveOutput(currentWord, previousWord, lineContent, previousChar, wordRange, openTags, currentStatement)
+            this.resolveOutput(
+                currentWord,
+                previousWord,
+                lineContent,
+                wordRange,
+                openTags,
+                currentStatement,
+                listStatements
+            )
         } else {
             return {
                 suggestions: []
@@ -59,19 +78,31 @@ export class twigCompletionProvider implements CompletionItemProvider {
         return openTags
     }
 
-    protected listStatements(model: editor.ITextModel, line: number, word: editor.IWordAtPosition): string[]
+    protected listStatements(model: editor.ITextModel, line: number, word: editor.IWordAtPosition): string[][]
     {
-        throw Error('Method not implemented')
+        const controls = model.getValueInRange(new Range(1, 1, line, word.startColumn))
+            .matchAll(/{%\s*(for|endfor)(?: ([^ ]+) in ([^ ]+))?/g)
+        let listStatements = []
+
+        for (const control of controls) {
+            if (control[1] == 'for') {
+                listStatements.push(control)
+            } else if (control[1] == 'endfor') {
+                listStatements.splice(-1)
+            }
+        }
+
+        return listStatements
     }
 
     protected resolveControl(
         currentWord: editor.IWordAtPosition,
         previousWord: editor.IWordAtPosition,
         lineContent: string,
-        previousChar: string,
         wordRange: Range,
         openTags: string[],
-        currentStatement: string
+        currentStatement: string,
+        listStatements: string[][]
     ) {
         throw Error('Method not implemented')
     }
@@ -80,10 +111,10 @@ export class twigCompletionProvider implements CompletionItemProvider {
         currentWord: editor.IWordAtPosition,
         previousWord: editor.IWordAtPosition,
         lineContent: string,
-        previousChar: string,
         wordRange: Range,
         openTags: string[],
-        currentStatement: string
+        currentStatement: string,
+        listStatements: string[][]
     ) {
         throw Error('Method not implemented')
     }
