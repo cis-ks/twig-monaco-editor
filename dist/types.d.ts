@@ -17,7 +17,8 @@ export type CompletionOption = {
     detail?: string,
     hint?: string,
     documentation?: string,
-    subOptions?: CompletionOptions
+    subOptions?: CompletionOptions,
+    is_list?: boolean
 }
 
 export type ControlCompletionOption = {
