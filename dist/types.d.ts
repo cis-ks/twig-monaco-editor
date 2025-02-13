@@ -1,5 +1,6 @@
-import {languages} from "monaco-editor";
+import {languages, Range} from "monaco-editor";
 import CompletionItemKind = languages.CompletionItemKind;
+import CompletionItem = languages.CompletionItem;
 
 
 export interface CompletionOptions {
@@ -17,8 +18,9 @@ export type CompletionOption = {
     detail?: string,
     hint?: string,
     documentation?: string,
-    subOptions?: CompletionOptions,
-    is_list?: boolean
+    subOptions?: CompletionOptions|CompletionItem[],
+    is_list?: boolean,
+    range?: Range
 }
 
 export type ControlCompletionOption = {

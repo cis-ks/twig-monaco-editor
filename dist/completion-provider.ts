@@ -2,68 +2,73 @@ import {CancellationToken, editor, languages, Position, Range} from "monaco-edit
 import CompletionItemProvider = languages.CompletionItemProvider;
 import {CompletionOptions} from './types'
 import CompletionItemKind = languages.CompletionItemKind;
+import {controlCompletion, isComparisationCompletion} from "./definitions";
+import CompletionItem = languages.CompletionItem;
+import {completionGenerator} from "./generator"
 
 export class twigCompletionProvider implements CompletionItemProvider {
+
+    private currentWord: editor.IWordAtPosition
+    private previousWord: editor.IWordAtPosition
+    private lineContent: string
+    private wordRange: Range
+    private openTagsList: string[]
+    private listStatementsList: string[][]
+    private setStatementsList: string[][]
+
     constructor(
         protected readonly completionOptions: CompletionOptions = {},
         protected readonly customFilterOptions: CompletionOptions = {},
         protected readonly customFunctionOptions: CompletionOptions = {}
     ) {
     }
-    provideCompletionItems(model: editor.ITextModel, position: Position, context: languages.CompletionContext, token: CancellationToken): languages.ProviderResult<languages.CompletionList> {
-        const currentWord = model.getWordUntilPosition(position)
-        const previousWord = model.getWordUntilPosition(new Position(position.lineNumber, currentWord.startColumn - 1))
-        const lineContent = model.getValueInRange(new Range(position.lineNumber, 1, position.lineNumber, currentWord.startColumn))
-        const wordRange = new Range(position.lineNumber, currentWord.startColumn, position.lineNumber, currentWord.endColumn)
+    provideCompletionItems(
+        model: editor.ITextModel,
+        position: Position,
+        context: languages.CompletionContext,
+        token: CancellationToken
+    ): languages.ProviderResult<languages.CompletionList> {
+        this.currentWord = model.getWordUntilPosition(position)
+        this.previousWord = model.getWordUntilPosition(new Position(position.lineNumber, this.currentWord.startColumn - 1))
+        this.lineContent = model.getValueInRange(new Range(position.lineNumber, 1, position.lineNumber, this.currentWord.startColumn))
+        this.wordRange = new Range(position.lineNumber, this.currentWord.startColumn, position.lineNumber, this.currentWord.endColumn)
 
-        const openTags = this.openTags(model, position.lineNumber, currentWord)
-        const listStatements = this.listStatements(model, position.lineNumber, currentWord)
+        this.openTagsList = this.openTags(model, position.lineNumber)
+        this.listStatementsList = this.listStatements(model, position.lineNumber)
+        this.setStatementsList = this.setStatements(model, position.lineNumber)
 
-        console.log('currentWord', currentWord)
-        console.log('previousWord', previousWord)
-        console.log('lineContent', lineContent)
-        console.log('listStatements', listStatements)
+        console.log('currentWord', this.currentWord)
+        console.log('previousWord', this.previousWord)
+        console.log('lineContent', this.lineContent)
+        console.log('openTags', this.openTagsList)
+        console.log('listStatements', this.listStatementsList)
+        console.log('setStatements', this.setStatementsList)
 
-        const currentStatement = lineContent.substring(Math.max(
-            lineContent.lastIndexOf(" "),
-            lineContent.lastIndexOf("|")
-        ) + 1)
+        let suggestionsOptions = {}
 
-        if (lineContent.match(/.*{%[^}]+$/)) {
-            this.resolveControl(
-                currentWord,
-                previousWord,
-                lineContent,
-                wordRange,
-                openTags,
-                currentStatement,
-                listStatements
-            )
-        } else if (lineContent.match(/.*{{[^}]+$/)) {
-            this.resolveOutput(
-                currentWord,
-                previousWord,
-                lineContent,
-                wordRange,
-                openTags,
-                currentStatement,
-                listStatements
-            )
+        if (this.lineContent.match(/.*{%[^}]+$/)) {
+            suggestionsOptions = this.resolveControl()
+        } else if (this.lineContent.match(/.*{{[^}]+$/)) {
+            suggestionsOptions = this.resolveOutput()
         } else {
             return {
                 suggestions: []
             }
         }
+
+        return {
+            suggestions: this.completion(suggestionsOptions)
+        }
     }
 
-    protected openTags(model: editor.ITextModel, line: number, word: editor.IWordAtPosition): string[] {
+    protected openTags(model: editor.ITextModel, line: number): string[] {
         const re = /{%[~-]?\s*([^ ]+)/g
 
         let openTags: string[] = []
         let lastTag: string = ''
         let m: RegExpExecArray | null;
 
-        let content = model.getValueInRange(new Range(1, 1, line, word.startColumn))
+        let content = model.getValueInRange(new Range(1, 1, line, this.currentWord.startColumn))
 
         while (m = re.exec(content)) {
             if (m[1] === ('end' + lastTag) && openTags.length) {
@@ -78,9 +83,9 @@ export class twigCompletionProvider implements CompletionItemProvider {
         return openTags
     }
 
-    protected listStatements(model: editor.ITextModel, line: number, word: editor.IWordAtPosition): string[][]
+    protected listStatements(model: editor.ITextModel, line: number): string[][]
     {
-        const controls = model.getValueInRange(new Range(1, 1, line, word.startColumn))
+        const controls = model.getValueInRange(new Range(1, 1, line, this.currentWord.startColumn))
             .matchAll(/{%\s*(for|endfor)(?: ([^ ]+) in ([^ ]+))?/g)
         let listStatements = []
 
@@ -95,36 +100,53 @@ export class twigCompletionProvider implements CompletionItemProvider {
         return listStatements
     }
 
-    protected resolveControl(
-        currentWord: editor.IWordAtPosition,
-        previousWord: editor.IWordAtPosition,
-        lineContent: string,
-        wordRange: Range,
-        openTags: string[],
-        currentStatement: string,
-        listStatements: string[][]
-    ) {
-        throw Error('Method not implemented')
+    protected setStatements(model: editor.ITextModel, line: number): string[][]
+    {
+        const controls = model.getValueInRange(new Range(1, 1, line, this.currentWord.startColumn))
+            .matchAll(/{%\s*set\s+([^ ]+)\s*=/g)
+
+        return Object.values(controls)
     }
 
-    protected resolveOutput(
-        currentWord: editor.IWordAtPosition,
-        previousWord: editor.IWordAtPosition,
-        lineContent: string,
-        wordRange: Range,
-        openTags: string[],
-        currentStatement: string,
-        listStatements: string[][]
-    ) {
-        throw Error('Method not implemented')
+    protected resolveControl(): object {
+        let completionObjects = {}
+
+        if (this.lineContent.trim().slice(-2) == '{%') {
+            completionObjects = this.controlWords();
+        } else if (this.previousWord.word == 'is') {
+            completionObjects = isComparisationCompletion;
+        } else {
+            completionObjects = this.resolveOutput()
+        }
+
+        return completionObjects
+    }
+
+    private controlWords() {
+        return Object.keys(controlCompletion)
+            .filter(key => (!key.startsWith('end') && key !== 'elseif')
+                || key === ('end' + this.openTagsList.slice(-1))
+                || (key === 'elseif' && this.openTagsList.slice(-1)[0] == 'if')
+                || (key === 'endif' && this.openTagsList.slice(-1)[0] == 'elseif')
+            )
+            .reduce((obj, key) => {
+                obj[key] = controlCompletion[key];
+                return obj;
+            }, {})
+    }
+
+    protected resolveOutput(): object {
+        // throw Error('Method not implemented')
+        console.log('----------------------------- output')
+        return {}
     }
 
     completion(
         options: CompletionOptions,
-        range: Range,
         defaultKind: CompletionItemKind = languages.CompletionItemKind.Property,
         defaultDetail: string = 'string'
-    ) {
-        // pass
+    ): CompletionItem[] {
+        const generator = new completionGenerator(options, this.wordRange, defaultKind, defaultDetail)
+        return generator.resolve()
     }
 }

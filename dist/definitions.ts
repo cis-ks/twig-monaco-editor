@@ -14,3 +14,24 @@ export const controlCompletion: ControlCompletionOptions = {
     endif: {},
     set: {},
 }
+
+export const isComparisationCompletion: ControlCompletionOptions = {
+    constant: {},
+    defined: {},
+    divisible_by: {
+        label: 'divisible by',
+        insertText: 'divisible by'
+    },
+    empty: {},
+    even: {},
+    iterable: {},
+    mapping: {},
+    not: {},
+    null: {},
+    odd: {},
+    same_as: {
+        label: 'same as',
+        insertText: 'same as'
+    },
+    sequence: {},
+}
