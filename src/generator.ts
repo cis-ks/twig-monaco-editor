@@ -1,7 +1,8 @@
 import {languages, Range} from "monaco-editor";
-import {CompletionOption, CompletionOptions } from "./types";
+import {CompletionOption, CompletionOptions, insertTextSnippet} from "./types";
 import CompletionItem = languages.CompletionItem;
 import CompletionItemKind = languages.CompletionItemKind;
+import CompletionItemInsertTextRule = languages.CompletionItemInsertTextRule;
 
 export class completionGenerator {
     constructor(
@@ -14,15 +15,13 @@ export class completionGenerator {
 
     resolve(): CompletionItem[]
     {
-        return Object.values(
-            this.mapCompletionObjects(this.completionOptions, this.range, this.defaultKind, this.defaultDetail)
-        )
+        return this.mapCompletionObjects(this.completionOptions, this.range, this.defaultKind, this.defaultDetail)
     }
 
     private objectDetail(completionObject: CompletionOption, defaultDetail: string = 'string'): string
     {
         let detail = completionObject.detail ?? defaultDetail;
-        if (completionObject.hasOwnProperty('hint')) {
+        if (Object.prototype.hasOwnProperty.call(completionObject, 'hint')) {
             detail += ' (' + completionObject.hint + ')'
         }
         return detail.trimStart()
@@ -36,15 +35,29 @@ export class completionGenerator {
         defaultDetail: string = 'string'
     ): CompletionOption {
         return {
-            label: completionName,
-            insertText: completionObject.insertText ?? completionName,
+            label: completionObject.label ?? completionName,
+            insertText: this.retrieveInsertText(completionObject.insertText) ?? completionObject.label ?? completionName,
             kind: completionObject.kind ?? defaultKind ?? languages.CompletionItemKind.Property,
             detail: this.objectDetail(completionObject, defaultDetail),
             documentation: completionObject.documentation ?? '',
             range: range,
-            subOptions: completionObject.hasOwnProperty('options')
+            subOptions: Object.prototype.hasOwnProperty.call(completionObject, 'options')
                 ? this.mapCompletionObjects(completionObject.subOptions, range, defaultKind, defaultDetail)
-                : {}
+                : {},
+            insertTextRules: typeof (completionObject.insertText ?? completionName) != 'string'
+                ? CompletionItemInsertTextRule.InsertAsSnippet
+                : undefined
+        }
+    }
+
+    private retrieveInsertText(insertText: string|insertTextSnippet): string|undefined
+    {
+        if (typeof  insertText == "string") {
+            return insertText
+        } else if (typeof insertText == "object" && Object.prototype.hasOwnProperty.call(insertText, 'value')) {
+            return insertText.value
+        } else {
+            return undefined
         }
     }
 
@@ -54,10 +67,10 @@ export class completionGenerator {
         defaultKind: CompletionItemKind,
         defaultDetail: string = 'string'
     ): CompletionItem[] {
-        let returnList = []
+        const returnList = []
 
         Object.keys(completionObjects).forEach((name) => {
-            returnList[name] = this.completionObject(name, completionObjects[name], range, defaultKind, defaultDetail)
+            returnList.push(this.completionObject(name, completionObjects[name], range, defaultKind, defaultDetail))
         })
 
         return returnList

@@ -1,5 +1,7 @@
 {
+  "include": ["src"],
   "compilerOptions": {
+    "outDir": "dist",
     "target": "ES2022",
     "moduleResolution": "bundler"
   }
