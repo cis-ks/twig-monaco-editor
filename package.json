@@ -1,5 +1,5 @@
 {
-  "name": "twig-monaco-editor",
+  "name": "@cis-badvilbel/twig-monaco-editor",
   "version": "1.0.0",
   "description": "IntelliSense for Twig within Micros0ofts Monaco-Editor",
   "main": "src/index.ts",
